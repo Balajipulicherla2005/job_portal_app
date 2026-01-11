@@ -26,7 +26,7 @@ const EmployerProfile = () => {
 
   const fetchProfile = async () => {
     try {
-      const response = await api.get('/profile');
+      const response = await api.get('/profile/employer');
       const profile = response.data;
       setFormData({
         name: profile.name || '',
@@ -59,7 +59,7 @@ const EmployerProfile = () => {
     setSaving(true);
 
     try {
-      await api.put('/profile', formData);
+      await api.put('/profile/employer', formData);
       toast.success('Profile updated successfully!');
       fetchProfile();
     } catch (error) {

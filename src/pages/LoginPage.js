@@ -28,9 +28,10 @@ const LoginPage = () => {
       const user = await login(formData.email, formData.password);
       toast.success('Login successful!');
 
-      if (user.user_type === 'job_seeker') {
+      // Redirect based on user role
+      if (user.role === 'jobseeker') {
         navigate('/job-seeker/dashboard');
-      } else if (user.user_type === 'employer') {
+      } else if (user.role === 'employer') {
         navigate('/employer/dashboard');
       } else {
         navigate('/');

@@ -27,7 +27,7 @@ const JobSeekerProfile = () => {
 
   const fetchProfile = async () => {
     try {
-      const response = await api.get('/profile');
+      const response = await api.get('/profile/job-seeker');
       const profile = response.data;
       setFormData({
         name: profile.name || '',
@@ -79,7 +79,7 @@ const JobSeekerProfile = () => {
         data.append('resume', resume);
       }
 
-      await api.put('/profile', data, {
+      await api.put('/profile/job-seeker', data, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

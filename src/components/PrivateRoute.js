@@ -9,7 +9,8 @@ const PrivateRoute = ({ children, userType }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (userType && user.user_type !== userType) {
+  // Check if user role matches the required userType
+  if (userType && user.role !== userType) {
     return <Navigate to="/" replace />;
   }
 

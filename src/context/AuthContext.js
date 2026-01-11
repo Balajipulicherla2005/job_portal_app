@@ -24,7 +24,7 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem('token');
       if (token) {
         const response = await api.get('/auth/me');
-        setUser(response.data.user);
+        setUser(response.data.data);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
@@ -36,15 +36,35 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const response = await api.post('/auth/login', { email, password });
-    const { token, user } = response.data;
+    const { token, user } = response.data.data;
     localStorage.setItem('token', token);
     setUser(user);
     return user;
   };
 
   const register = async (userData) => {
-    const response = await api.post('/auth/register', userData);
-    const { token, user } = response.data;
+    // Map frontend fields to backend fields
+    const backendData = {
+      email: userData.email,
+      password: userData.password,
+      role: userData.user_type === 'job_seeker' ? 'jobseeker' : 'employer', // Map job_seeker to jobseeker
+    };
+
+    // Add role-specific fields
+    if (userData.user_type === 'job_seeker') {
+      // Split name into firstName and lastName
+      const nameParts = (userData.name || '').trim().split(' ');
+      backendData.firstName = nameParts[0] || '';
+      backendData.lastName = nameParts.slice(1).join(' ') || '';
+      backendData.phone = userData.phone || '';
+    } else if (userData.user_type === 'employer') {
+      backendData.companyName = userData.company_name || '';
+      backendData.companyDescription = userData.company_description || '';
+      backendData.phone = userData.phone || '';
+    }
+
+    const response = await api.post('/auth/register', backendData);
+    const { token, user } = response.data.data;
     localStorage.setItem('token', token);
     setUser(user);
     return user;
@@ -62,8 +82,8 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     isAuthenticated: !!user,
-    isJobSeeker: user?.user_type === 'job_seeker',
-    isEmployer: user?.user_type === 'employer',
+    isJobSeeker: user?.role === 'jobseeker',
+    isEmployer: user?.role === 'employer',
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

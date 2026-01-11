@@ -52,7 +52,7 @@ function App() {
             <Route
               path="/job-seeker/dashboard"
               element={
-                <PrivateRoute userType="job_seeker">
+                <PrivateRoute userType="jobseeker">
                   <JobSeekerDashboard />
                 </PrivateRoute>
               }
@@ -60,7 +60,7 @@ function App() {
             <Route
               path="/job-seeker/profile"
               element={
-                <PrivateRoute userType="job_seeker">
+                <PrivateRoute userType="jobseeker">
                   <JobSeekerProfile />
                 </PrivateRoute>
               }
@@ -68,7 +68,7 @@ function App() {
             <Route
               path="/job-seeker/applications"
               element={
-                <PrivateRoute userType="job_seeker">
+                <PrivateRoute userType="jobseeker">
                   <MyApplications />
                 </PrivateRoute>
               }
