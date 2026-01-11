@@ -7,15 +7,13 @@ import './Profile.css';
 const EmployerProfile = () => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    company_name: '',
-    company_description: '',
-    company_website: '',
-    company_location: '',
-    company_size: '',
+    companyName: '',
+    companyWebsite: '',
+    companySize: '',
     industry: '',
+    location: '',
+    phone: '',
+    description: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -27,23 +25,27 @@ const EmployerProfile = () => {
   const fetchProfile = async () => {
     try {
       const response = await api.get('/profile/employer');
-      const profile = response.data;
+      const profile = response.data.data;
+      
       setFormData({
-        name: profile.name || '',
-        email: profile.email || '',
-        phone: profile.phone || '',
-        company_name: profile.company_name || '',
-        company_description: profile.company_description || '',
-        company_website: profile.company_website || '',
-        company_location: profile.company_location || '',
-        company_size: profile.company_size || '',
+        companyName: profile.companyName || '',
+        companyWebsite: profile.companyWebsite || '',
+        companySize: profile.companySize || '',
         industry: profile.industry || '',
+        location: profile.location || '',
+        phone: profile.phone || '',
+        description: profile.description || '',
       });
+      setLoading(false);
     } catch (error) {
       console.error('Error fetching profile:', error);
-      toast.error('Failed to load profile');
-    } finally {
-      setLoading(false);
+      if (error.response?.status === 404) {
+        // Profile doesn't exist yet
+        setLoading(false);
+      } else {
+        toast.error('Failed to load profile');
+        setLoading(false);
+      }
     }
   };
 
@@ -70,28 +72,34 @@ const EmployerProfile = () => {
   };
 
   if (loading) {
-    return <div className="loading-container">Loading profile...</div>;
+    return (
+      <div className="profile-page">
+        <div className="loading-container">Loading profile...</div>
+      </div>
+    );
   }
 
   return (
     <div className="profile-page">
       <div className="profile-container">
         <h1 className="profile-title">Company Profile</h1>
+        <p className="profile-subtitle">Employer Profile</p>
 
         <form onSubmit={handleSubmit} className="profile-form">
           <div className="form-section">
-            <h2 className="section-title">Contact Information</h2>
+            <h2 className="section-title">Company Information</h2>
 
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="name">Contact Name *</label>
+                <label htmlFor="companyName">Company Name *</label>
                 <input
                   type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
+                  id="companyName"
+                  name="companyName"
+                  value={formData.companyName}
                   onChange={handleChange}
                   required
+                  placeholder="Acme Corporation"
                 />
               </div>
 
@@ -100,99 +108,40 @@ const EmployerProfile = () => {
                 <input
                   type="email"
                   id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
+                  value={user?.email || ''}
                   disabled
+                  className="disabled-input"
                 />
               </div>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="phone">Phone Number</label>
-              <input
-                type="tel"
-                id="phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-
-          <div className="form-section">
-            <h2 className="section-title">Company Details</h2>
-
-            <div className="form-group">
-              <label htmlFor="company_name">Company Name *</label>
-              <input
-                type="text"
-                id="company_name"
-                name="company_name"
-                value={formData.company_name}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="company_description">Company Description</label>
-              <textarea
-                id="company_description"
-                name="company_description"
-                value={formData.company_description}
-                onChange={handleChange}
-                rows="5"
-                placeholder="Describe your company"
-              />
-            </div>
-
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="company_website">Website</label>
+                <label htmlFor="companyWebsite">Company Website</label>
                 <input
                   type="url"
-                  id="company_website"
-                  name="company_website"
-                  value={formData.company_website}
+                  id="companyWebsite"
+                  name="companyWebsite"
+                  value={formData.companyWebsite}
                   onChange={handleChange}
-                  placeholder="https://example.com"
+                  placeholder="https://www.example.com"
                 />
               </div>
 
               <div className="form-group">
-                <label htmlFor="company_location">Company Location</label>
+                <label htmlFor="phone">Phone Number</label>
                 <input
-                  type="text"
-                  id="company_location"
-                  name="company_location"
-                  value={formData.company_location}
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  value={formData.phone}
                   onChange={handleChange}
-                  placeholder="City, State/Country"
+                  placeholder="+1 (555) 123-4567"
                 />
               </div>
             </div>
 
             <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="company_size">Company Size</label>
-                <select
-                  id="company_size"
-                  name="company_size"
-                  value={formData.company_size}
-                  onChange={handleChange}
-                >
-                  <option value="">Select size</option>
-                  <option value="1-10">1-10 employees</option>
-                  <option value="11-50">11-50 employees</option>
-                  <option value="51-200">51-200 employees</option>
-                  <option value="201-500">201-500 employees</option>
-                  <option value="501-1000">501-1000 employees</option>
-                  <option value="1000+">1000+ employees</option>
-                </select>
-              </div>
-
               <div className="form-group">
                 <label htmlFor="industry">Industry</label>
                 <input
@@ -201,9 +150,51 @@ const EmployerProfile = () => {
                   name="industry"
                   value={formData.industry}
                   onChange={handleChange}
-                  placeholder="e.g., Technology, Healthcare"
+                  placeholder="Technology, Healthcare, Finance, etc."
                 />
               </div>
+
+              <div className="form-group">
+                <label htmlFor="companySize">Company Size</label>
+                <select
+                  id="companySize"
+                  name="companySize"
+                  value={formData.companySize}
+                  onChange={handleChange}
+                >
+                  <option value="">Select company size</option>
+                  <option value="1-10">1-10 employees</option>
+                  <option value="11-50">11-50 employees</option>
+                  <option value="51-200">51-200 employees</option>
+                  <option value="201-500">201-500 employees</option>
+                  <option value="501-1000">501-1000 employees</option>
+                  <option value="1000+">1000+ employees</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="location">Company Location</label>
+              <input
+                type="text"
+                id="location"
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                placeholder="San Francisco, CA"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="description">Company Description</label>
+              <textarea
+                id="description"
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                rows="6"
+                placeholder="Tell job seekers about your company, culture, mission, and values"
+              />
             </div>
           </div>
 

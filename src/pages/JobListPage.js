@@ -1,153 +1,254 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import { toast } from 'react-toastify';
 import './Jobs.css';
 
 const JobListPage = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    keyword: '',
+    search: '',
+    jobType: '',
     location: '',
-    job_type: '',
+    experienceLevel: ''
+  });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    pages: 0
   });
 
   useEffect(() => {
     fetchJobs();
-  }, []);
+  }, [pagination.page, filters]);
 
-  const fetchJobs = async (searchFilters = {}) => {
-    setLoading(true);
+  const fetchJobs = async () => {
     try {
-      const params = new URLSearchParams();
-      if (searchFilters.keyword) params.append('keyword', searchFilters.keyword);
-      if (searchFilters.location) params.append('location', searchFilters.location);
-      if (searchFilters.job_type) params.append('job_type', searchFilters.job_type);
+      setLoading(true);
+      const params = {
+        page: pagination.page,
+        limit: pagination.limit,
+        ...filters
+      };
 
-      const response = await api.get(`/jobs?${params.toString()}`);
-      setJobs(response.data.jobs || []);
+      // Remove empty filters
+      Object.keys(params).forEach(key => {
+        if (params[key] === '') delete params[key];
+      });
+
+      const response = await api.get('/jobs', { params });
+      setJobs(response.data.data);
+      setPagination(prev => ({
+        ...prev,
+        total: response.data.pagination.total,
+        pages: response.data.pagination.pages
+      }));
     } catch (error) {
       console.error('Error fetching jobs:', error);
+      toast.error('Failed to load jobs');
     } finally {
       setLoading(false);
     }
   };
 
   const handleFilterChange = (e) => {
-    setFilters({
-      ...filters,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    setFilters(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    setPagination(prev => ({ ...prev, page: 1 }));
   };
 
   const handleSearch = (e) => {
     e.preventDefault();
-    fetchJobs(filters);
+    fetchJobs();
   };
 
-  const handleReset = () => {
+  const clearFilters = () => {
     setFilters({
-      keyword: '',
+      search: '',
+      jobType: '',
       location: '',
-      job_type: '',
+      experienceLevel: ''
     });
-    fetchJobs({});
+    setPagination(prev => ({ ...prev, page: 1 }));
   };
+
+  const formatSalary = (job) => {
+    if (!job.salaryMin && !job.salaryMax) return 'Not specified';
+    
+    const format = (num) => new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0
+    }).format(num);
+
+    if (job.salaryMin && job.salaryMax) {
+      return `${format(job.salaryMin)} - ${format(job.salaryMax)} / ${job.salaryPeriod}`;
+    }
+    return job.salaryMin ? `${format(job.salaryMin)}+ / ${job.salaryPeriod}` : `Up to ${format(job.salaryMax)} / ${job.salaryPeriod}`;
+  };
+
+  if (loading && jobs.length === 0) {
+    return (
+      <div className="jobs-page">
+        <div className="loading-container">Loading jobs...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="jobs-page">
       <div className="jobs-container">
-        <h1 className="page-title">Find Your Perfect Job</h1>
+        <div className="jobs-header">
+          <h1>Find Your Dream Job</h1>
+          <p>Explore thousands of job opportunities</p>
+        </div>
 
-        {/* Search Filters */}
-        <div className="search-section">
-          <form onSubmit={handleSearch} className="search-form">
-            <div className="search-row">
+        {/* Filters */}
+        <div className="filters-section">
+          <form onSubmit={handleSearch} className="filters-form">
+            <div className="filter-row">
               <input
                 type="text"
-                name="keyword"
-                placeholder="Job title, keywords..."
-                value={filters.keyword}
+                name="search"
+                placeholder="Search jobs by title or description"
+                value={filters.search}
                 onChange={handleFilterChange}
                 className="search-input"
               />
+              <button type="submit" className="search-button">Search</button>
+            </div>
+
+            <div className="filter-row">
+              <select
+                name="jobType"
+                value={filters.jobType}
+                onChange={handleFilterChange}
+                className="filter-select"
+              >
+                <option value="">All Job Types</option>
+                <option value="full-time">Full Time</option>
+                <option value="part-time">Part Time</option>
+                <option value="contract">Contract</option>
+                <option value="internship">Internship</option>
+                <option value="temporary">Temporary</option>
+              </select>
+
               <input
                 type="text"
                 name="location"
                 placeholder="Location"
                 value={filters.location}
                 onChange={handleFilterChange}
-                className="search-input"
+                className="filter-input"
               />
+
               <select
-                name="job_type"
-                value={filters.job_type}
+                name="experienceLevel"
+                value={filters.experienceLevel}
                 onChange={handleFilterChange}
-                className="search-select"
+                className="filter-select"
               >
-                <option value="">All Job Types</option>
-                <option value="Full-time">Full-time</option>
-                <option value="Part-time">Part-time</option>
-                <option value="Contract">Contract</option>
-                <option value="Internship">Internship</option>
-                <option value="Remote">Remote</option>
+                <option value="">All Experience Levels</option>
+                <option value="entry">Entry Level</option>
+                <option value="mid">Mid Level</option>
+                <option value="senior">Senior Level</option>
+                <option value="executive">Executive</option>
               </select>
-            </div>
-            <div className="search-buttons">
-              <button type="submit" className="search-button">
-                Search Jobs
-              </button>
-              <button type="button" onClick={handleReset} className="reset-button">
-                Reset
+
+              <button type="button" onClick={clearFilters} className="clear-button">
+                Clear Filters
               </button>
             </div>
           </form>
         </div>
 
-        {/* Jobs List */}
-        <div className="jobs-list-section">
-          {loading ? (
-            <p className="loading-text">Loading jobs...</p>
-          ) : jobs.length > 0 ? (
-            <>
-              <p className="results-count">{jobs.length} jobs found</p>
-              <div className="jobs-list">
-                {jobs.map((job) => (
-                  <div key={job.id} className="job-item">
-                    <div className="job-header">
-                      <h2 className="job-item-title">{job.title}</h2>
-                      <span className="job-type-badge">{job.job_type}</span>
-                    </div>
-                    <p className="job-company">{job.company_name}</p>
-                    <div className="job-details">
-                      <span className="job-detail">📍 {job.location}</span>
-                      {job.salary_range && (
-                        <span className="job-detail">💰 {job.salary_range}</span>
-                      )}
-                    </div>
-                    <p className="job-description">
-                      {job.description?.substring(0, 150)}
-                      {job.description?.length > 150 ? '...' : ''}
-                    </p>
-                    <div className="job-footer">
-                      <span className="job-date">
-                        Posted: {new Date(job.created_at).toLocaleDateString()}
-                      </span>
-                      <Link to={`/jobs/${job.id}`} className="view-job-button">
-                        View Details
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
+        {/* Results */}
+        <div className="results-info">
+          <p>{pagination.total} jobs found</p>
+        </div>
+
+        {/* Job List */}
+        <div className="jobs-list">
+          {jobs.length === 0 ? (
             <div className="no-jobs">
-              <p>No jobs found matching your criteria.</p>
-              <p>Try adjusting your search filters.</p>
+              <h3>No jobs found</h3>
+              <p>Try adjusting your filters or search criteria</p>
             </div>
+          ) : (
+            jobs.map(job => (
+              <Link to={`/jobs/${job.id}`} key={job.id} className="job-card">
+                <div className="job-card-header">
+                  <h3 className="job-title">{job.title}</h3>
+                  <span className={`job-type ${job.jobType}`}>{job.jobType}</span>
+                </div>
+
+                <div className="job-company">
+                  <span className="company-name">
+                    {job.employer?.employerProfile?.companyName || 'Company Name'}
+                  </span>
+                  <span className="job-location">📍 {job.location}</span>
+                </div>
+
+                <p className="job-description">
+                  {job.description.length > 200
+                    ? `${job.description.substring(0, 200)}...`
+                    : job.description}
+                </p>
+
+                <div className="job-details">
+                  {job.experienceLevel && (
+                    <span className="detail-tag">
+                      {job.experienceLevel.charAt(0).toUpperCase() + job.experienceLevel.slice(1)} Level
+                    </span>
+                  )}
+                  <span className="detail-tag">💰 {formatSalary(job)}</span>
+                  {job.skills && job.skills.length > 0 && (
+                    <span className="detail-tag">
+                      {job.skills.length} skill{job.skills.length > 1 ? 's' : ''} required
+                    </span>
+                  )}
+                </div>
+
+                <div className="job-footer">
+                  <span className="job-posted">
+                    Posted {new Date(job.createdAt).toLocaleDateString()}
+                  </span>
+                  <button className="view-details-btn">View Details →</button>
+                </div>
+              </Link>
+            ))
           )}
         </div>
+
+        {/* Pagination */}
+        {pagination.pages > 1 && (
+          <div className="pagination">
+            <button
+              onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+              disabled={pagination.page === 1}
+              className="page-button"
+            >
+              Previous
+            </button>
+
+            <span className="page-info">
+              Page {pagination.page} of {pagination.pages}
+            </span>
+
+            <button
+              onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+              disabled={pagination.page === pagination.pages}
+              className="page-button"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

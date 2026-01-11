@@ -1,75 +1,172 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 import { toast } from 'react-toastify';
-import { jobAPI } from '../services/api';
-import Loading from '../components/common/Loading';
+import './MyJobs.css';
 
 const MyJobs = () => {
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ totalJobs: 0, activeJobs: 0, closedJobs: 0 });
 
   useEffect(() => {
     fetchMyJobs();
+    fetchStats();
   }, []);
 
   const fetchMyJobs = async () => {
     try {
-      const response = await jobAPI.getMyJobs();
-      setJobs(response.data);
+      const response = await api.get('/jobs/employer/my-jobs');
+      setJobs(response.data.data);
+      setLoading(false);
     } catch (error) {
-      toast.error('Failed to fetch jobs');
-    } finally {
+      console.error('Fetch jobs error:', error);
+      toast.error('Failed to load jobs');
       setLoading(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this job?')) {
-      try {
-        await jobAPI.deleteJob(id);
-        toast.success('Job deleted successfully');
-        fetchMyJobs();
-      } catch (error) {
-        toast.error('Failed to delete job');
-      }
+  const fetchStats = async () => {
+    try {
+      const response = await api.get('/jobs/employer/stats');
+      setStats(response.data.data);
+    } catch (error) {
+      console.error('Fetch stats error:', error);
     }
   };
 
-  if (loading) return <Loading />;
+  const handleDelete = async (jobId) => {
+    if (!window.confirm('Are you sure you want to delete this job posting?')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/jobs/${jobId}`);
+      toast.success('Job deleted successfully');
+      fetchMyJobs();
+      fetchStats();
+    } catch (error) {
+      console.error('Delete job error:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete job');
+    }
+  };
+
+  const handleEdit = (jobId) => {
+    navigate(`/employer/jobs/edit/${jobId}`);
+  };
+
+  const formatSalary = (min, max) => {
+    if (!min && !max) return 'Not specified';
+    if (!min) return `Up to $${max.toLocaleString()}`;
+    if (!max) return `From $${min.toLocaleString()}`;
+    return `$${min.toLocaleString()} - $${max.toLocaleString()}`;
+  };
+
+  const formatDate = (date) => {
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="my-jobs-page">
+        <div className="loading-container">Loading jobs...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="page-container">
+    <div className="my-jobs-page">
       <div className="page-header">
-        <h1 className="page-title">My Jobs</h1>
-        <Link to="/create-job" className="btn btn-primary">Post New Job</Link>
+        <h1>My Job Postings</h1>
+        <button onClick={() => navigate('/employer/jobs/create')} className="btn-create">
+          + Post New Job
+        </button>
       </div>
 
-      <div className="jobs-grid">
-        {jobs.length === 0 ? (
-          <div className="no-results">No jobs posted yet</div>
-        ) : (
-          jobs.map(job => (
+      <div className="stats-container">
+        <div className="stat-card">
+          <h3>{stats.totalJobs}</h3>
+          <p>Total Jobs</p>
+        </div>
+        <div className="stat-card">
+          <h3>{stats.activeJobs}</h3>
+          <p>Active Jobs</p>
+        </div>
+        <div className="stat-card">
+          <h3>{stats.closedJobs}</h3>
+          <p>Closed Jobs</p>
+        </div>
+      </div>
+
+      {jobs.length === 0 ? (
+        <div className="empty-state">
+          <h2>No Job Postings Yet</h2>
+          <p>Start by creating your first job posting</p>
+          <button onClick={() => navigate('/employer/jobs/create')} className="btn-primary">
+            Post Your First Job
+          </button>
+        </div>
+      ) : (
+        <div className="jobs-list">
+          {jobs.map((job) => (
             <div key={job.id} className="job-card">
-              <h3 className="job-title">{job.title}</h3>
-              <div className="job-details">
-                <span>📍 {job.location}</span>
-                <span>💼 {job.jobType}</span>
+              <div className="job-header">
+                <div>
+                  <h2>{job.title}</h2>
+                  <p className="job-meta">
+                    {job.jobType} • {job.location} • Posted {formatDate(job.createdAt)}
+                  </p>
+                </div>
+                <span className={`status-badge status-${job.status}`}>
+                  {job.status}
+                </span>
               </div>
-              <div className="flex gap-1 mt-2">
-                <Link to={`/job-applications/${job.id}`} className="btn btn-primary btn-sm">
-                  View Applications
-                </Link>
-                <Link to={`/edit-job/${job.id}`} className="btn btn-secondary btn-sm">
+
+              <div className="job-details">
+                <p className="job-description">
+                  {job.description.length > 200
+                    ? `${job.description.substring(0, 200)}...`
+                    : job.description}
+                </p>
+
+                <div className="job-info">
+                  <div className="info-item">
+                    <strong>Salary:</strong> {formatSalary(job.salaryMin, job.salaryMax)}
+                  </div>
+                  {job.experienceLevel && (
+                    <div className="info-item">
+                      <strong>Experience:</strong> {job.experienceLevel}
+                    </div>
+                  )}
+                  {job.skills && job.skills.length > 0 && (
+                    <div className="info-item">
+                      <strong>Skills:</strong> {job.skills.slice(0, 3).join(', ')}
+                      {job.skills.length > 3 && ` +${job.skills.length - 3} more`}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="job-actions">
+                <button onClick={() => navigate(`/jobs/${job.id}`)} className="btn-view">
+                  View Details
+                </button>
+                <button onClick={() => handleEdit(job.id)} className="btn-edit">
                   Edit
-                </Link>
-                <button onClick={() => handleDelete(job.id)} className="btn btn-danger btn-sm">
+                </button>
+                <button onClick={() => handleDelete(job.id)} className="btn-delete">
                   Delete
                 </button>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

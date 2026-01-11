@@ -7,11 +7,10 @@ import './Profile.css';
 const JobSeekerProfile = () => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
+    fullName: '',
     phone: '',
     location: '',
-    skills: '',
+    skills: [],
     experience: '',
     education: '',
     bio: '',
@@ -20,6 +19,7 @@ const JobSeekerProfile = () => {
   const [currentResume, setCurrentResume] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingResume, setUploadingResume] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -27,32 +27,48 @@ const JobSeekerProfile = () => {
 
   const fetchProfile = async () => {
     try {
-      const response = await api.get('/profile/job-seeker');
-      const profile = response.data;
+      const response = await api.get('/profile/jobseeker');
+      const profile = response.data.data;
+      
       setFormData({
-        name: profile.name || '',
-        email: profile.email || '',
+        fullName: profile.fullName || '',
         phone: profile.phone || '',
         location: profile.location || '',
-        skills: profile.skills || '',
+        skills: profile.skills || [],
         experience: profile.experience || '',
         education: profile.education || '',
         bio: profile.bio || '',
       });
-      setCurrentResume(profile.resume_url);
+      setCurrentResume(profile.resumePath);
+      setLoading(false);
     } catch (error) {
       console.error('Error fetching profile:', error);
-      toast.error('Failed to load profile');
-    } finally {
-      setLoading(false);
+      if (error.response?.status === 404) {
+        // Profile doesn't exist yet
+        setLoading(false);
+      } else {
+        toast.error('Failed to load profile');
+        setLoading(false);
+      }
     }
   };
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    
+    if (name === 'skills') {
+      // Convert comma-separated string to array
+      const skillsArray = value.split(',').map(skill => skill.trim()).filter(Boolean);
+      setFormData({
+        ...formData,
+        [name]: skillsArray,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
   };
 
   const handleFileChange = (e) => {
@@ -71,20 +87,7 @@ const JobSeekerProfile = () => {
     setSaving(true);
 
     try {
-      const data = new FormData();
-      Object.keys(formData).forEach((key) => {
-        data.append(key, formData[key]);
-      });
-      if (resume) {
-        data.append('resume', resume);
-      }
-
-      await api.put('/profile/job-seeker', data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
+      await api.put('/profile/jobseeker', formData);
       toast.success('Profile updated successfully!');
       fetchProfile();
     } catch (error) {
@@ -94,14 +97,47 @@ const JobSeekerProfile = () => {
     }
   };
 
+  const handleResumeUpload = async () => {
+    if (!resume) {
+      toast.error('Please select a file first');
+      return;
+    }
+
+    setUploadingResume(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('resume', resume);
+
+      await api.post('/profile/jobseeker/resume', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      toast.success('Resume uploaded successfully!');
+      setResume(null);
+      fetchProfile();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to upload resume');
+    } finally {
+      setUploadingResume(false);
+    }
+  };
+
   if (loading) {
-    return <div className="loading-container">Loading profile...</div>;
+    return (
+      <div className="profile-page">
+        <div className="loading-container">Loading profile...</div>
+      </div>
+    );
   }
 
   return (
     <div className="profile-page">
       <div className="profile-container">
         <h1 className="profile-title">My Profile</h1>
+        <p className="profile-subtitle">Job Seeker Profile</p>
 
         <form onSubmit={handleSubmit} className="profile-form">
           <div className="form-section">
@@ -109,14 +145,15 @@ const JobSeekerProfile = () => {
 
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="name">Full Name *</label>
+                <label htmlFor="fullName">Full Name *</label>
                 <input
                   type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
+                  id="fullName"
+                  name="fullName"
+                  value={formData.fullName}
                   onChange={handleChange}
                   required
+                  placeholder="John Doe"
                 />
               </div>
 
@@ -125,11 +162,9 @@ const JobSeekerProfile = () => {
                 <input
                   type="email"
                   id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
+                  value={user?.email || ''}
                   disabled
+                  className="disabled-input"
                 />
               </div>
             </div>
@@ -143,6 +178,7 @@ const JobSeekerProfile = () => {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
+                  placeholder="+1 (555) 123-4567"
                 />
               </div>
 
@@ -154,7 +190,7 @@ const JobSeekerProfile = () => {
                   name="location"
                   value={formData.location}
                   onChange={handleChange}
-                  placeholder="City, State/Country"
+                  placeholder="San Francisco, CA"
                 />
               </div>
             </div>
@@ -167,7 +203,7 @@ const JobSeekerProfile = () => {
                 value={formData.bio}
                 onChange={handleChange}
                 rows="4"
-                placeholder="Tell us about yourself"
+                placeholder="Tell us about yourself and your career goals"
               />
             </div>
           </div>
@@ -176,15 +212,16 @@ const JobSeekerProfile = () => {
             <h2 className="section-title">Professional Details</h2>
 
             <div className="form-group">
-              <label htmlFor="skills">Skills</label>
+              <label htmlFor="skills">Skills (comma-separated)</label>
               <textarea
                 id="skills"
                 name="skills"
-                value={formData.skills}
+                value={Array.isArray(formData.skills) ? formData.skills.join(', ') : ''}
                 onChange={handleChange}
                 rows="3"
-                placeholder="List your skills (e.g., JavaScript, React, Node.js)"
+                placeholder="JavaScript, React, Node.js, Python, SQL"
               />
+              <small>Separate skills with commas</small>
             </div>
 
             <div className="form-group">
@@ -194,8 +231,8 @@ const JobSeekerProfile = () => {
                 name="experience"
                 value={formData.experience}
                 onChange={handleChange}
-                rows="5"
-                placeholder="Describe your work experience"
+                rows="6"
+                placeholder="Describe your work experience, including company names, roles, and dates"
               />
             </div>
 
@@ -207,7 +244,7 @@ const JobSeekerProfile = () => {
                 value={formData.education}
                 onChange={handleChange}
                 rows="4"
-                placeholder="Your educational background"
+                placeholder="Your educational background, degrees, and certifications"
               />
             </div>
           </div>
@@ -217,28 +254,42 @@ const JobSeekerProfile = () => {
 
             {currentResume && (
               <div className="current-resume">
-                <p>Current Resume:</p>
+                <p>✓ Resume uploaded</p>
                 <a
-                  href={currentResume}
+                  href={`http://localhost:5002${currentResume}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="resume-link"
                 >
-                  View Resume
+                  View Current Resume
                 </a>
               </div>
             )}
 
             <div className="form-group">
               <label htmlFor="resume">Upload New Resume (PDF, DOC, DOCX - Max 5MB)</label>
-              <input
-                type="file"
-                id="resume"
-                accept=".pdf,.doc,.docx"
-                onChange={handleFileChange}
-                className="file-input"
-              />
-              {resume && <p className="file-name">Selected: {resume.name}</p>}
+              <div className="file-upload-section">
+                <input
+                  type="file"
+                  id="resume"
+                  accept=".pdf,.doc,.docx"
+                  onChange={handleFileChange}
+                  className="file-input"
+                />
+                {resume && (
+                  <div className="file-selected">
+                    <p className="file-name">✓ Selected: {resume.name}</p>
+                    <button
+                      type="button"
+                      onClick={handleResumeUpload}
+                      className="upload-button"
+                      disabled={uploadingResume}
+                    >
+                      {uploadingResume ? 'Uploading...' : 'Upload Resume'}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

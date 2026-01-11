@@ -25,6 +25,7 @@ import JobSeekerProfile from './pages/JobSeekerProfile';
 import EmployerProfile from './pages/EmployerProfile';
 import CreateJob from './pages/CreateJob';
 import EditJob from './pages/EditJob';
+import MyJobs from './pages/MyJobs';
 import MyApplications from './pages/MyApplications';
 import JobApplications from './pages/JobApplications';
 
@@ -92,6 +93,14 @@ function App() {
               }
             />
             <Route
+              path="/employer/jobs"
+              element={
+                <PrivateRoute userType="employer">
+                  <MyJobs />
+                </PrivateRoute>
+              }
+            />
+            <Route
               path="/employer/jobs/create"
               element={
                 <PrivateRoute userType="employer">
@@ -100,7 +109,7 @@ function App() {
               }
             />
             <Route
-              path="/employer/jobs/:id/edit"
+              path="/employer/jobs/edit/:id"
               element={
                 <PrivateRoute userType="employer">
                   <EditJob />
